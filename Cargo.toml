@@ -1,0 +1,8 @@
+[package]
+name = "matcher"
+version = "0.1.0"
+authors = ["Vadim Kaushan <admin@disasm.info>"]
+edition = "2018"
+
+[dependencies]
+criterion = "0.2.11"
