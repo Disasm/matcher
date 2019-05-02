@@ -15,11 +15,11 @@ pub enum OrderKind {
 
 #[derive(Debug, Clone)]
 pub struct Order {
-    price_limit: u64,
-    amount: u64,
-    user_id: u64,
-    kind: OrderKind,
-    side: OrderSide,
+    pub price_limit: u64,
+    pub amount: u64,
+    pub user_id: u64,
+    pub kind: OrderKind,
+    pub side: OrderSide,
 }
 
 impl Order {
@@ -31,6 +31,7 @@ impl Order {
     }
 }
 
+#[derive(Clone)]
 pub struct OrderQueue {
     orders: Vec<Order>,
     side: OrderSide,
@@ -102,6 +103,7 @@ pub enum ExecutionResult {
     Cancelled,
 }
 
+#[derive(Clone)]
 pub struct OrderBook {
     bid: OrderQueue,
     ask: OrderQueue,
