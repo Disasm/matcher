@@ -55,10 +55,13 @@ impl OrderQueue {
     }
 
     pub fn match_order(&mut self, order: &mut Order) {
+        let mut count = 0;
         for passive_order in &mut self.orders {
             if !passive_order.price_matches(order) {
                 break;
             }
+            count += 1;
+
             if passive_order.user_id == order.user_id {
                 continue;
             }
@@ -72,7 +75,16 @@ impl OrderQueue {
         }
 
         // Remove fulfilled passive orders
-        self.orders.retain(|order| order.amount > 0);
+        let mut retained = VecDeque::new();
+        for _ in 0..count {
+            let order = self.orders.pop_front().unwrap();
+            if order.amount > 0 {
+                retained.push_front(order);
+            }
+        }
+        for order in retained {
+            self.orders.push_front(order);
+        }
     }
 
     pub fn enqueue(&mut self, order: Order) {
