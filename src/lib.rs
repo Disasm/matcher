@@ -137,17 +137,17 @@ impl OrderBook {
 #[allow(unused)]
 pub fn dump20(book: &OrderBook) {
     println!("== ORDER BOOK START");
-//    for (index, order) in book.ask.iter().enumerate().rev() {
-//        if index < 25 {
-//            println!("{:?}", order);
-//        }
-//    }
+    for (index, order) in (&book.ask).into_iter().enumerate().rev() {
+        if index < 25 {
+            println!("{:?}", order);
+        }
+    }
     println!("--");
-//    for (index, order) in book.bid.iter().enumerate() {
-//        if index < 25 {
-//            println!("{:?}", order);
-//        }
-//    }
+    for (index, order) in (&book.bid).into_iter().enumerate() {
+        if index < 25 {
+            println!("{:?}", order);
+        }
+    }
     println!("== ORDER BOOK END");
 }
 
