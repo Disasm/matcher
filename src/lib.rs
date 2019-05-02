@@ -1,6 +1,5 @@
 #![allow(unused)]
 
-use std::cmp;
 use crate::queues::{InsertableQueue, IterableQueue, TruncatableQueue};
 use crate::queues::{SimpleVecQueue, VecDequeQueue};
 use crate::order::{OrderSide, Order, OrderKind, IncomingOrder, Direction, Buy, Sell};
@@ -60,7 +59,7 @@ where Q: IterableQueue<Order<D>> + InsertableQueue<Order<D>> + TruncatableQueue 
                 return true;
             }
 
-            let amount = cmp::min(order.amount, passive_order.amount);
+            let amount = std::cmp::min(order.amount, passive_order.amount);
             order.amount -= amount;
             if passive_order.amount == amount {
                 drop_first = index + 1;
