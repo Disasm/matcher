@@ -1,6 +1,7 @@
 use crate::order::{Order, Direction};
 use crate::{InsertableQueue, GoodEnoughQueue};
 use crate::queues::{TruncatableQueue, IterableQueue};
+use std::slice;
 
 #[derive(Clone)]
 pub struct SimpleVecQueue<D>(Vec<Order<D>>);
@@ -42,6 +43,15 @@ impl<D> IterableQueue<Order<D>> for SimpleVecQueue<D> {
                 break;
             }
         }
+    }
+}
+
+impl<'a, D> IntoIterator for &'a SimpleVecQueue<D> {
+    type Item = &'a Order<D>;
+    type IntoIter = slice::Iter<'a, Order<D>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.0).into_iter()
     }
 }
 

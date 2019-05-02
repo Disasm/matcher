@@ -2,6 +2,7 @@ use crate::order::{Order, Direction};
 use std::collections::vec_deque::VecDeque;
 use crate::{InsertableQueue, GoodEnoughQueue};
 use crate::queues::{IterableQueue, TruncatableQueue};
+use std::collections::vec_deque;
 
 #[derive(Clone)]
 pub struct VecDequeQueue<D>(VecDeque<Order<D>>);
@@ -41,6 +42,15 @@ impl<D> IterableQueue<Order<D>> for VecDequeQueue<D> {
                 break;
             }
         }
+    }
+}
+
+impl<'a, D> IntoIterator for &'a VecDequeQueue<D> {
+    type Item = &'a Order<D>;
+    type IntoIter = vec_deque::Iter<'a, Order<D>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.0).into_iter()
     }
 }
 
