@@ -19,8 +19,10 @@ pub trait IterableQueue<T> {
     fn iterate<P>(&mut self, predicate: P) where P: FnMut(&mut T, usize) -> bool;
 }
 
+mod reversed_vec;
 mod simple_vec_queue;
 mod vec_deque_queue;
 
+pub use self::reversed_vec::ReversedVec;
 pub use self::simple_vec_queue::SimpleVecQueue;
 pub use self::vec_deque_queue::VecDequeQueue;
