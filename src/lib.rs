@@ -1,4 +1,5 @@
 use std::cmp;
+use std::collections::vec_deque::VecDeque;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum OrderSide {
@@ -33,14 +34,14 @@ impl Order {
 
 #[derive(Clone)]
 pub struct OrderQueue {
-    orders: Vec<Order>,
+    orders: VecDeque<Order>,
     side: OrderSide,
 }
 
 impl OrderQueue {
     pub fn new(side: OrderSide) -> Self {
         Self {
-            orders: Vec::new(),
+            orders: VecDeque::new(),
             side,
         }
     }
@@ -55,18 +56,17 @@ impl OrderQueue {
 
     pub fn match_order(&mut self, order: &mut Order) {
         for passive_order in &mut self.orders {
+            if !passive_order.price_matches(order) {
+                break;
+            }
             if passive_order.user_id == order.user_id {
                 continue;
             }
 
-            if passive_order.price_matches(order) {
-                let amount = cmp::min(order.amount, passive_order.amount);
-                passive_order.amount -= amount;
-                order.amount -= amount;
-                if order.amount == 0 {
-                    break;
-                }
-            } else {
+            let amount = cmp::min(order.amount, passive_order.amount);
+            passive_order.amount -= amount;
+            order.amount -= amount;
+            if order.amount == 0 {
                 break;
             }
         }
@@ -81,16 +81,24 @@ impl OrderQueue {
         match self.side {
             OrderSide::Buy => {
                 if let Some(p) = self.orders.iter().position(|o| o.price_limit < order.price_limit) {
-                    self.orders.insert(p, order);
+                    if p == 0 {
+                        self.orders.push_front(order);
+                    } else {
+                        self.orders.insert(p, order);
+                    }
                 } else {
-                    self.orders.push(order);
+                    self.orders.push_back(order);
                 }
             },
             OrderSide::Sell => {
                 if let Some(p) = self.orders.iter().position(|o| o.price_limit > order.price_limit) {
-                    self.orders.insert(p, order);
+                    if p == 0 {
+                        self.orders.push_front(order);
+                    } else {
+                        self.orders.insert(p, order);
+                    }
                 } else {
-                    self.orders.push(order);
+                    self.orders.push_back(order);
                 }
             },
         }
