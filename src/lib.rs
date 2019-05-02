@@ -55,33 +55,31 @@ impl OrderQueue {
     }
 
     pub fn match_order(&mut self, order: &mut Order) {
-        let mut count = 0;
-        for passive_order in &mut self.orders {
+        let mut retained = VecDeque::new();
+        while let Some(mut passive_order) = self.orders.pop_front() {
             if !passive_order.price_matches(order) {
+                retained.push_front(passive_order);
                 break;
             }
-            count += 1;
 
             if passive_order.user_id == order.user_id {
+                retained.push_front(passive_order);
                 continue;
             }
 
             let amount = cmp::min(order.amount, passive_order.amount);
             passive_order.amount -= amount;
             order.amount -= amount;
+
+            if passive_order.amount > 0 {
+                retained.push_front(passive_order);
+            }
+
             if order.amount == 0 {
                 break;
             }
         }
 
-        // Remove fulfilled passive orders
-        let mut retained = VecDeque::new();
-        for _ in 0..count {
-            let order = self.orders.pop_front().unwrap();
-            if order.amount > 0 {
-                retained.push_front(order);
-            }
-        }
         for order in retained {
             self.orders.push_front(order);
         }
