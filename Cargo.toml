@@ -10,3 +10,6 @@ criterion = "0.2.11"
 [[bench]]
 name = "target_benchmark"
 harness = false
+
+[profile.release]
+debug = true
