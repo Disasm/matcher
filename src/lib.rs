@@ -1,119 +1,88 @@
+#![allow(unused)]
+
 use std::cmp;
-use std::collections::vec_deque::VecDeque;
+use crate::queues::{InsertableQueue, IterableQueue, TruncatableQueue};
+use crate::queues::{SimpleVecQueue, VecDequeQueue};
+use crate::order::{OrderSide, Order, OrderKind, IncomingOrder, Direction, Buy, Sell};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum OrderSide {
-    Buy,
-    Sell,
+pub mod order;
+pub mod queues;
+
+
+pub trait OrderQueueInsert<D: Direction> {
+    fn insert(&mut self, order: Order<D>);
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum OrderKind {
-    Limit,
-    FillOrKill,
-    ImmediateOrCancel,
+pub trait OrderQueueMatch<D: Direction> {
+    fn match_order(&mut self, order: &mut Order<D::Other>);
 }
 
-#[derive(Debug, Clone)]
-pub struct Order {
-    pub price_limit: u64,
-    pub amount: u64,
-    pub user_id: u64,
-    pub kind: OrderKind,
-    pub side: OrderSide,
+pub trait GoodEnoughQueue<D: Direction>: Default + OrderQueueInsert<D> + OrderQueueMatch<D> {
+    fn len(&self) -> usize;
 }
 
-impl Order {
-    fn price_matches(&self, other: &Order) -> bool {
-        match other.side {
-            OrderSide::Buy => self.price_limit <= other.price_limit,
-            OrderSide::Sell => self.price_limit >= other.price_limit,
+impl<D: Direction, Q: InsertableQueue<Order<D>>> OrderQueueInsert<D> for Q {
+    fn insert(&mut self, order: Order<D>) {
+        match D::SIDE {
+            OrderSide::Buy => {
+                let index = self.insert_position(|o| o.price_limit < order.price_limit);
+                if let Some(index) = index {
+                    self.insert_at(index, order);
+                } else {
+                    self.push_back(order);
+                }
+            }
+            OrderSide::Sell => {
+                let index = self.insert_position(|o| o.price_limit > order.price_limit);
+                if let Some(index) = index {
+                    self.insert_at(index, order);
+                } else {
+                    self.push_back(order);
+                }
+            }
         }
     }
 }
 
-#[derive(Clone)]
-pub struct OrderQueue {
-    orders: VecDeque<Order>,
-    side: OrderSide,
-}
+impl<D: Direction, Q> OrderQueueMatch<D> for Q
+where Q: IterableQueue<Order<D>> + InsertableQueue<Order<D>> + TruncatableQueue {
+    fn match_order(&mut self, order: &mut Order<<D as Direction>::Other>) {
+        let mut retained = Vec::new();
+        let mut drop_first = 0;
 
-impl OrderQueue {
-    pub fn new(side: OrderSide) -> Self {
-        Self {
-            orders: VecDeque::new(),
-            side,
-        }
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &Order> {
-        self.orders.iter()
-    }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Order> {
-        self.orders.iter_mut()
-    }
-
-    pub fn match_order(&mut self, order: &mut Order) {
-        let mut retained = VecDeque::new();
-        while let Some(mut passive_order) = self.orders.pop_front() {
+        self.iterate(|passive_order, index| {
             if !passive_order.price_matches(order) {
-                retained.push_front(passive_order);
-                break;
+                return false;
             }
 
             if passive_order.user_id == order.user_id {
-                retained.push_front(passive_order);
-                continue;
+                retained.push(passive_order.clone());
+                return true;
             }
 
             let amount = cmp::min(order.amount, passive_order.amount);
-            passive_order.amount -= amount;
             order.amount -= amount;
-
-            if passive_order.amount > 0 {
-                retained.push_front(passive_order);
+            if passive_order.amount == amount {
+                drop_first = index + 1;
+            } else {
+                drop_first = index;
             }
 
             if order.amount == 0 {
-                break;
+                passive_order.amount -= amount;
+                return false;
             }
+            true
+        });
+        if drop_first > 0 {
+            self.drop_first_n(drop_first);
         }
-
-        for order in retained {
-            self.orders.push_front(order);
-        }
-    }
-
-    pub fn enqueue(&mut self, order: Order) {
-        assert_eq!(order.side, self.side);
-
-        match self.side {
-            OrderSide::Buy => {
-                if let Some(p) = self.orders.iter().position(|o| o.price_limit < order.price_limit) {
-                    if p == 0 {
-                        self.orders.push_front(order);
-                    } else {
-                        self.orders.insert(p, order);
-                    }
-                } else {
-                    self.orders.push_back(order);
-                }
-            },
-            OrderSide::Sell => {
-                if let Some(p) = self.orders.iter().position(|o| o.price_limit > order.price_limit) {
-                    if p == 0 {
-                        self.orders.push_front(order);
-                    } else {
-                        self.orders.insert(p, order);
-                    }
-                } else {
-                    self.orders.push_back(order);
-                }
-            },
+        for order in retained.into_iter().rev() {
+            self.push_front(order);
         }
     }
 }
+
 
 pub enum ExecutionResult {
     Enqueued,
@@ -123,65 +92,74 @@ pub enum ExecutionResult {
 
 #[derive(Clone)]
 pub struct OrderBook {
-    bid: OrderQueue,
-    ask: OrderQueue,
+    bid: VecDequeQueue<Buy>,
+    ask: VecDequeQueue<Sell>,
 }
 
 impl OrderBook {
     pub fn new() -> Self {
         OrderBook {
-            bid: OrderQueue::new(OrderSide::Buy),
-            ask: OrderQueue::new(OrderSide::Sell),
+            bid: VecDequeQueue::default(),
+            ask: VecDequeQueue::default(),
         }
     }
 
-    pub fn execute_order(&mut self, mut order: Order) {
+    pub fn bid(&self) -> &VecDequeQueue<Buy> {
+        &self.bid
+    }
+
+    pub fn ask(&self) -> &VecDequeQueue<Sell> {
+        &self.ask
+    }
+
+    fn execute_sell(&mut self, mut order: Order<Sell>) {
+        self.bid.match_order(&mut order);
+        if order.amount > 0 {
+            self.ask.insert(order);
+        }
+    }
+
+    fn execute_buy(&mut self, mut order: Order<Buy>) {
+        self.ask.match_order(&mut order);
+        if order.amount > 0 {
+            self.bid.insert(order);
+        }
+    }
+
+    pub fn execute_order(&mut self, order: IncomingOrder) {
         match order.side {
-            OrderSide::Buy => {
-                self.ask.match_order(&mut order);
-                if order.amount > 0 {
-                    self.bid.enqueue(order);
-                }
-            }
-            OrderSide::Sell => {
-                self.bid.match_order(&mut order);
-                if order.amount > 0 {
-                    self.ask.enqueue(order);
-                }
-            }
-        };
-    }
-
-    fn matching_orders(&self, order: &Order) -> usize {
-        let queue = match order.side {
-            OrderSide::Buy => &self.ask,
-            OrderSide::Sell => &self.bid,
-        };
-
-        let mut count = 0;
-        for passive_order in queue.iter() {
-            if passive_order.user_id == order.user_id {
-                continue;
-            }
-            if passive_order.price_matches(order) {
-                count += 1;
-            } else {
-                break;
-            }
+            OrderSide::Buy => self.execute_buy(order.into()),
+            OrderSide::Sell => self.execute_sell(order.into()),
         }
-        count
     }
 }
 
 #[allow(unused)]
-pub fn create_orders() -> Vec<Order> {
+pub fn dump20(book: &OrderBook) {
+    println!("== ORDER BOOK START");
+//    for (index, order) in book.ask.iter().enumerate().rev() {
+//        if index < 25 {
+//            println!("{:?}", order);
+//        }
+//    }
+    println!("--");
+//    for (index, order) in book.bid.iter().enumerate() {
+//        if index < 25 {
+//            println!("{:?}", order);
+//        }
+//    }
+    println!("== ORDER BOOK END");
+}
+
+#[allow(unused)]
+pub fn create_orders() -> Vec<IncomingOrder> {
     let price = 10000;
     let mut orders = Vec::new();
 
     let mut user_id = 10;
     for i in 0..3500 {
         user_id += 1;
-        let order = Order {
+        let order = IncomingOrder {
             price_limit: price + i + 1,
             amount: 10,
             user_id,
@@ -190,7 +168,7 @@ pub fn create_orders() -> Vec<Order> {
         };
         orders.push(order);
         user_id += 1;
-        let order = Order {
+        let order = IncomingOrder {
             price_limit: price - i,
             amount: 10,
             user_id,
@@ -209,17 +187,17 @@ fn matching_with_20_orders() {
     for order in orders {
         book.execute_order(order);
     }
-    assert_eq!(book.bid.orders.len(), 3500);
-    assert_eq!(book.ask.orders.len(), 3500);
+    assert_eq!(book.bid.len(), 3500);
+    assert_eq!(book.ask.len(), 3500);
 
-    let order = Order {
+    let order = IncomingOrder {
         price_limit: 10020,
-        amount: 1000,
+        amount: 200,
         user_id: 0,
         kind: OrderKind::Limit,
         side: OrderSide::Buy
     };
     book.execute_order(order);
-    assert_eq!(book.bid.orders.len(), 3500+1);
-    assert_eq!(book.ask.orders.len(), 3500-20);
+    assert_eq!(book.bid.len(), 3500);
+    assert_eq!(book.ask.len(), 3500-20);
 }

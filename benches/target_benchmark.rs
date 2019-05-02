@@ -1,11 +1,12 @@
 use criterion::{criterion_group, criterion_main, BatchSize};
 use criterion::Criterion;
-use matcher::{create_orders, OrderBook, Order, OrderKind, OrderSide};
+use matcher::{create_orders, OrderBook};
+use matcher::order::{IncomingOrder, OrderKind, OrderSide};
 
 #[derive(Clone)]
 struct BenchInputData {
     book: OrderBook,
-    order: Order,
+    order: IncomingOrder,
 }
 
 fn execute_order(mut data: BenchInputData) {
@@ -19,7 +20,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         book.execute_order(order);
     }
 
-    let order = Order {
+    let order = IncomingOrder {
         price_limit: 10020,
         amount: 1000,
         user_id: 0,
