@@ -25,7 +25,11 @@ impl<D: Direction> InsertableQueue<Order<D>> for VecDequeQueue<D> {
     }
 
     fn insert_at(&mut self, index: usize, item: Order<D>) {
-        self.0.insert(index, item)
+        if index == 0 {
+            self.0.push_front(item)
+        } else {
+            self.0.insert(index, item)
+        }
     }
 }
 
