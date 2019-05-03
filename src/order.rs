@@ -98,6 +98,16 @@ impl<D: Direction> Order<D> {
             OrderSide::Sell => other.price_limit >= self.price_limit,
         }
     }
+
+    pub fn to_incoming(&self) -> IncomingOrder {
+        IncomingOrder {
+            price_limit: self.price_limit,
+            size: self.size,
+            user_id: self.user_id,
+            kind: OrderKind::Limit,
+            side: D::SIDE,
+        }
+    }
 }
 
 impl<D: Direction> PartialEq for Order<D> {

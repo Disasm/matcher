@@ -17,11 +17,7 @@ fn execute_order(mut data: BenchInputData) {
 
 fn criterion_benchmark(c: &mut Criterion) {
     let orders = create_orders();
-    let mut book = OrderBook::new();
-    let mut log = DummyLogger;
-    for order in orders {
-        book.execute_order(order, &mut log);
-    }
+    let book = OrderBook::deserialize(orders);
 
     let order = IncomingOrder {
         price_limit: 10020,

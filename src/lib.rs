@@ -157,6 +157,26 @@ impl OrderBook {
             }
         }
     }
+
+    pub fn serialize(&self) -> Vec<IncomingOrder> {
+        let mut orders = Vec::new();
+        for order in (&self.bid).into_iter().rev() {
+            orders.push(order.to_incoming());
+        }
+        for order in (&self.ask).into_iter() {
+            orders.push(order.to_incoming());
+        }
+        orders
+    }
+
+    pub fn deserialize(orders: Vec<IncomingOrder>) -> Self {
+        let mut book = Self::new();
+        let mut logger = DummyLogger;
+        for order in orders {
+            book.execute_order(order, &mut logger);
+        }
+        book
+    }
 }
 
 #[allow(unused)]
@@ -208,11 +228,8 @@ pub fn create_orders() -> Vec<IncomingOrder> {
 #[test]
 fn matching_with_20_orders() {
     let orders = create_orders();
-    let mut book = OrderBook::new();
-    let mut log = DummyLogger;
-    for order in orders {
-        book.execute_order(order, &mut log);
-    }
+    let mut book = OrderBook::deserialize(orders);
+    let mut logger = DummyLogger;
     assert_eq!(book.bid.len(), 3500);
     assert_eq!(book.ask.len(), 3500);
 
@@ -223,7 +240,7 @@ fn matching_with_20_orders() {
         kind: OrderKind::Limit,
         side: OrderSide::Buy
     };
-    book.execute_order(order, &mut log);
+    book.execute_order(order, &mut logger);
     assert_eq!(book.bid.len(), 3500);
     assert_eq!(book.ask.len(), 3500-20);
 }

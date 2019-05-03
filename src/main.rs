@@ -6,11 +6,8 @@ use matcher::log::{ExecutionLogger, DummyLogger};
 
 fn main() {
     let orders = create_orders();
-    let mut book = OrderBook::new();
-    let mut log = DummyLogger;
-    for order in orders {
-        book.execute_order(order, &mut log);
-    }
+    let mut book = OrderBook::deserialize(orders);
+    let mut logger = DummyLogger;
     assert_eq!(book.bid().len(), 3500);
     assert_eq!(book.ask().len(), 3500);
 
@@ -24,7 +21,7 @@ fn main() {
 
     //dump20(&book);
     for _ in 0..1000000 {
-        book.execute_order(order.clone(), &mut log);
+        book.execute_order(order.clone(), &mut logger);
 
         //dump20(&book);
 
@@ -39,7 +36,7 @@ fn main() {
                 kind: OrderKind::Limit,
                 side: OrderSide::Sell
             };
-            book.execute_order(order, &mut log);
+            book.execute_order(order, &mut logger);
         }
         //dump20(&book);
         assert_eq!(book.bid().len(), 3500);
