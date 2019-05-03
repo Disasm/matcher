@@ -13,7 +13,7 @@ pub trait OrderQueueInsert<D: Direction> {
 }
 
 pub trait OrderQueueMatch<D: Direction> {
-    fn match_order(&mut self, order: &mut Order<D::Other>);
+    fn match_order(&mut self, order: &mut Order<D::Other>, kind: OrderKind);
 }
 
 pub trait GoodEnoughQueue<D: Direction>: Default + OrderQueueInsert<D> + OrderQueueMatch<D> {
@@ -45,7 +45,7 @@ impl<D: Direction, Q: InsertableQueue<Order<D>>> OrderQueueInsert<D> for Q {
 
 impl<D: Direction, Q> OrderQueueMatch<D> for Q
 where Q: IterableQueue<Order<D>> + InsertableQueue<Order<D>> + TruncatableQueue {
-    fn match_order(&mut self, order: &mut Order<<D as Direction>::Other>) {
+    fn match_order(&mut self, order: &mut Order<D::Other>, kind: OrderKind) {
         let mut retained = Vec::new();
         let mut drop_first = 0;
 
@@ -73,6 +73,12 @@ where Q: IterableQueue<Order<D>> + InsertableQueue<Order<D>> + TruncatableQueue 
             }
             true
         });
+
+        if kind == OrderKind::FillOrKill && order.size != 0 {
+            // Cancel order
+            return;
+        }
+
         if drop_first > 0 {
             self.drop_first_n(drop_first);
         }
@@ -111,24 +117,25 @@ impl OrderBook {
         &self.ask
     }
 
-    fn execute_sell(&mut self, mut order: Order<Sell>) {
-        self.bid.match_order(&mut order);
-        if order.size > 0 {
+    fn execute_sell(&mut self, mut order: Order<Sell>, kind: OrderKind) {
+        self.bid.match_order(&mut order, kind);
+        if kind == OrderKind::Limit && order.size > 0 {
             self.ask.insert(order);
         }
     }
 
-    fn execute_buy(&mut self, mut order: Order<Buy>) {
-        self.ask.match_order(&mut order);
-        if order.size > 0 {
+    fn execute_buy(&mut self, mut order: Order<Buy>, kind: OrderKind) {
+        self.ask.match_order(&mut order, kind);
+        if kind == OrderKind::Limit && order.size > 0 {
             self.bid.insert(order);
         }
     }
 
     pub fn execute_order(&mut self, order: IncomingOrder) {
+        let kind = order.kind;
         match order.side {
-            OrderSide::Buy => self.execute_buy(order.into()),
-            OrderSide::Sell => self.execute_sell(order.into()),
+            OrderSide::Buy => self.execute_buy(order.into(), kind),
+            OrderSide::Sell => self.execute_sell(order.into(), kind),
         }
     }
 }
