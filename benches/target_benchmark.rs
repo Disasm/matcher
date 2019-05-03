@@ -2,6 +2,7 @@ use criterion::{criterion_group, criterion_main, BatchSize};
 use criterion::Criterion;
 use matcher::{create_orders, OrderBook};
 use matcher::order::{IncomingOrder, OrderKind, OrderSide};
+use matcher::log::DummyLogger;
 
 #[derive(Clone)]
 struct BenchInputData {
@@ -10,14 +11,16 @@ struct BenchInputData {
 }
 
 fn execute_order(mut data: BenchInputData) {
-    data.book.execute_order(data.order)
+    let mut logger = DummyLogger;
+    data.book.execute_order(data.order, &mut logger);
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
     let orders = create_orders();
     let mut book = OrderBook::new();
+    let mut log = DummyLogger;
     for order in orders {
-        book.execute_order(order);
+        book.execute_order(order, &mut log);
     }
 
     let order = IncomingOrder {

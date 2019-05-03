@@ -2,12 +2,14 @@
 use matcher::{create_orders, OrderBook, dump20};
 use matcher::order::{IncomingOrder, OrderKind, OrderSide};
 use matcher::GoodEnoughQueue;
+use matcher::log::{ExecutionLogger, DummyLogger};
 
 fn main() {
     let orders = create_orders();
     let mut book = OrderBook::new();
+    let mut log = DummyLogger;
     for order in orders {
-        book.execute_order(order);
+        book.execute_order(order, &mut log);
     }
     assert_eq!(book.bid().len(), 3500);
     assert_eq!(book.ask().len(), 3500);
@@ -22,7 +24,7 @@ fn main() {
 
     //dump20(&book);
     for _ in 0..1000000 {
-        book.execute_order(order.clone());
+        book.execute_order(order.clone(), &mut log);
 
         //dump20(&book);
 
@@ -37,7 +39,7 @@ fn main() {
                 kind: OrderKind::Limit,
                 side: OrderSide::Sell
             };
-            book.execute_order(order);
+            book.execute_order(order, &mut log);
         }
         //dump20(&book);
         assert_eq!(book.bid().len(), 3500);
