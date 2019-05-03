@@ -20,7 +20,6 @@ pub struct Order<D> {
     pub price_limit: u64,
     pub size: u64,
     pub user_id: u64,
-    pub kind: OrderKind,
     _marker: PhantomData<D>,
 }
 
@@ -40,7 +39,6 @@ impl From<IncomingOrder> for Order<Buy> {
             price_limit: order.price_limit,
             size: order.size,
             user_id: order.user_id,
-            kind: order.kind,
             _marker: PhantomData
         }
     }
@@ -53,7 +51,6 @@ impl From<IncomingOrder> for Order<Sell> {
             price_limit: order.price_limit,
             size: order.size,
             user_id: order.user_id,
-            kind: order.kind,
             _marker: PhantomData
         }
     }
