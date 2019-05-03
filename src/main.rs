@@ -14,7 +14,7 @@ fn main() {
 
     let order = IncomingOrder {
         price_limit: 10020,
-        amount: 200,
+        size: 200,
         user_id: 0,
         kind: OrderKind::Limit,
         side: OrderSide::Buy
@@ -32,7 +32,7 @@ fn main() {
         for i in (0..20).rev() {
             let order = IncomingOrder {
                 price_limit: 10000 + i + 1,
-                amount: 10,
+                size: 10,
                 user_id: 100 + i,
                 kind: OrderKind::Limit,
                 side: OrderSide::Sell

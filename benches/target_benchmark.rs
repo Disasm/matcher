@@ -22,7 +22,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let order = IncomingOrder {
         price_limit: 10020,
-        amount: 1000,
+        size: 1000,
         user_id: 0,
         kind: OrderKind::Limit,
         side: OrderSide::Buy

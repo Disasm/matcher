@@ -59,16 +59,16 @@ where Q: IterableQueue<Order<D>> + InsertableQueue<Order<D>> + TruncatableQueue 
                 return true;
             }
 
-            let amount = std::cmp::min(order.amount, passive_order.amount);
-            order.amount -= amount;
-            if passive_order.amount == amount {
+            let size = std::cmp::min(order.size, passive_order.size);
+            order.size -= size;
+            if passive_order.size == size {
                 drop_first = index + 1;
             } else {
                 drop_first = index;
             }
 
-            if order.amount == 0 {
-                passive_order.amount -= amount;
+            if order.size == 0 {
+                passive_order.size -= size;
                 return false;
             }
             true
@@ -113,14 +113,14 @@ impl OrderBook {
 
     fn execute_sell(&mut self, mut order: Order<Sell>) {
         self.bid.match_order(&mut order);
-        if order.amount > 0 {
+        if order.size > 0 {
             self.ask.insert(order);
         }
     }
 
     fn execute_buy(&mut self, mut order: Order<Buy>) {
         self.ask.match_order(&mut order);
-        if order.amount > 0 {
+        if order.size > 0 {
             self.bid.insert(order);
         }
     }
@@ -160,7 +160,7 @@ pub fn create_orders() -> Vec<IncomingOrder> {
         user_id += 1;
         let order = IncomingOrder {
             price_limit: price + i + 1,
-            amount: 10,
+            size: 10,
             user_id,
             kind: OrderKind::Limit,
             side: OrderSide::Sell
@@ -169,7 +169,7 @@ pub fn create_orders() -> Vec<IncomingOrder> {
         user_id += 1;
         let order = IncomingOrder {
             price_limit: price - i,
-            amount: 10,
+            size: 10,
             user_id,
             kind: OrderKind::Limit,
             side: OrderSide::Buy
@@ -191,7 +191,7 @@ fn matching_with_20_orders() {
 
     let order = IncomingOrder {
         price_limit: 10020,
-        amount: 200,
+        size: 200,
         user_id: 0,
         kind: OrderKind::Limit,
         side: OrderSide::Buy

@@ -18,7 +18,7 @@ pub enum OrderKind {
 #[derive(Debug, Clone)]
 pub struct Order<D> {
     pub price_limit: u64,
-    pub amount: u64,
+    pub size: u64,
     pub user_id: u64,
     pub kind: OrderKind,
     _marker: PhantomData<D>,
@@ -27,7 +27,7 @@ pub struct Order<D> {
 #[derive(Debug, Clone)]
 pub struct IncomingOrder {
     pub price_limit: u64,
-    pub amount: u64,
+    pub size: u64,
     pub user_id: u64,
     pub kind: OrderKind,
     pub side: OrderSide,
@@ -38,7 +38,7 @@ impl From<IncomingOrder> for Order<Buy> {
         assert_eq!(order.side, OrderSide::Buy);
         Self {
             price_limit: order.price_limit,
-            amount: order.amount,
+            size: order.size,
             user_id: order.user_id,
             kind: order.kind,
             _marker: PhantomData
@@ -51,7 +51,7 @@ impl From<IncomingOrder> for Order<Sell> {
         assert_eq!(order.side, OrderSide::Sell);
         Self {
             price_limit: order.price_limit,
-            amount: order.amount,
+            size: order.size,
             user_id: order.user_id,
             kind: order.kind,
             _marker: PhantomData
