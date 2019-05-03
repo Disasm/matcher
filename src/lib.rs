@@ -2,7 +2,7 @@
 
 use crate::queues::{InsertableQueue, IterableQueue, TruncatableQueue};
 use crate::queues::{SimpleVecQueue, VecDequeQueue};
-use crate::order::{OrderSide, Order, OrderKind, IncomingOrder, Direction, Buy, Sell};
+use crate::order::{OrderSide, Order, OrderKind, IncomingOrder, Direction, Buy, Sell, TaggedOrder};
 use crate::log::{ExecutionLogger, LogItem, DummyLogger};
 
 pub mod log;
@@ -123,61 +123,38 @@ impl OrderBook {
         &self.ask
     }
 
-    fn execute_sell(&mut self, mut order: Order<Sell>, kind: OrderKind, logger: &mut impl ExecutionLogger) {
-        self.bid.match_order(&mut order, kind, logger);
-
-        if order.size > 0 {
-            match kind {
-                OrderKind::Limit => {
-                    logger.log(LogItem::Enqueued {
-                        size: order.size
-                    });
-                    self.ask.insert(order);
-                },
-                OrderKind::FillOrKill => {
-                    logger.log(LogItem::Cancelled {
-                        size: order.size
-                    });
-                },
-                OrderKind::ImmediateOrCancel => {
-                    logger.log(LogItem::Cancelled {
-                        size: order.size
-                    });
-                },
-            }
-        }
-    }
-
-    fn execute_buy(&mut self, mut order: Order<Buy>, kind: OrderKind, logger: &mut impl ExecutionLogger) {
-        self.ask.match_order(&mut order, kind, logger);
-
-        if order.size > 0 {
-            match kind {
-                OrderKind::Limit => {
-                    logger.log(LogItem::Enqueued {
-                        size: order.size
-                    });
-                    self.bid.insert(order);
-                },
-                OrderKind::FillOrKill => {
-                    logger.log(LogItem::Cancelled {
-                        size: order.size
-                    });
-                },
-                OrderKind::ImmediateOrCancel => {
-                    logger.log(LogItem::Cancelled {
-                        size: order.size
-                    });
-                },
-            }
-        }
-    }
-
     pub fn execute_order(&mut self, order: IncomingOrder, logger: &mut impl ExecutionLogger) {
         let kind = order.kind;
-        match order.side {
-            OrderSide::Buy => self.execute_buy(order.into(), kind, logger),
-            OrderSide::Sell => self.execute_sell(order.into(), kind, logger),
+        let mut order = TaggedOrder::from(order);
+
+        match order {
+            TaggedOrder::Buy(ref mut order) => self.ask.match_order(order, kind, logger),
+            TaggedOrder::Sell(ref mut order) => self.bid.match_order(order, kind, logger),
+        }
+
+        let size = order.size();
+        if size > 0 {
+            match kind {
+                OrderKind::Limit => {
+                    logger.log(LogItem::Enqueued {
+                        size
+                    });
+                    match order {
+                        TaggedOrder::Buy(order) => self.bid.insert(order),
+                        TaggedOrder::Sell(order) => self.ask.insert(order),
+                    }
+                },
+                OrderKind::FillOrKill => {
+                    logger.log(LogItem::Cancelled {
+                        size
+                    });
+                },
+                OrderKind::ImmediateOrCancel => {
+                    logger.log(LogItem::Cancelled {
+                        size
+                    });
+                },
+            }
         }
     }
 }

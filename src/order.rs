@@ -23,6 +23,20 @@ pub struct Order<D> {
     _marker: PhantomData<D>,
 }
 
+pub enum TaggedOrder {
+    Buy(Order<Buy>),
+    Sell(Order<Sell>),
+}
+
+impl TaggedOrder {
+    pub fn size(&self) -> u64 {
+        match self {
+            TaggedOrder::Buy(order) => order.size,
+            TaggedOrder::Sell(order) => order.size,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct IncomingOrder {
     pub price_limit: u64,
@@ -32,26 +46,21 @@ pub struct IncomingOrder {
     pub side: OrderSide,
 }
 
-impl From<IncomingOrder> for Order<Buy> {
+impl From<IncomingOrder> for TaggedOrder {
     fn from(order: IncomingOrder) -> Self {
-        assert_eq!(order.side, OrderSide::Buy);
-        Self {
-            price_limit: order.price_limit,
-            size: order.size,
-            user_id: order.user_id,
-            _marker: PhantomData
-        }
-    }
-}
-
-impl From<IncomingOrder> for Order<Sell> {
-    fn from(order: IncomingOrder) -> Self {
-        assert_eq!(order.side, OrderSide::Sell);
-        Self {
-            price_limit: order.price_limit,
-            size: order.size,
-            user_id: order.user_id,
-            _marker: PhantomData
+        match order.side {
+            OrderSide::Buy => TaggedOrder::Buy(Order {
+                price_limit: order.price_limit,
+                size: order.size,
+                user_id: order.user_id,
+                _marker: PhantomData
+            }),
+            OrderSide::Sell => TaggedOrder::Sell(Order {
+                price_limit: order.price_limit,
+                size: order.size,
+                user_id: order.user_id,
+                _marker: PhantomData
+            }),
         }
     }
 }
