@@ -225,22 +225,76 @@ pub fn create_orders() -> Vec<IncomingOrder> {
     orders
 }
 
-#[test]
-fn matching_with_20_orders() {
-    let orders = create_orders();
-    let mut book = OrderBook::deserialize(orders);
-    let mut logger = DummyLogger;
-    assert_eq!(book.bid.len(), 3500);
-    assert_eq!(book.ask.len(), 3500);
+#[cfg(test)]
+pub mod tests {
+    use crate::order::*;
+    use crate::log::DummyLogger;
+    use crate::{OrderBook, GoodEnoughQueue};
+    use super::create_orders;
 
-    let order = IncomingOrder {
-        price_limit: 10020,
-        size: 200,
-        user_id: 0,
-        kind: OrderKind::Limit,
-        side: OrderSide::Buy
-    };
-    book.execute_order(order, &mut logger);
-    assert_eq!(book.bid.len(), 3500);
-    assert_eq!(book.ask.len(), 3500-20);
+    fn get_order<'a, D: 'a+Direction>(queue: impl IntoIterator<Item=&'a Order<D>>, index: usize) -> IncomingOrder {
+        queue.into_iter().nth(index).expect("invalid order index").to_incoming()
+    }
+
+    fn check_order<'a, D: 'a+Direction>(queue: impl IntoIterator<Item=&'a Order<D>>, side: &str, index: usize, s: &str) {
+        let order = get_order(queue, index);
+        if order.to_string() != s {
+            panic!("Invalid {} order at index {}: {}, should be {}", side, index, order, s);
+        }
+        assert_eq!(order.to_string(), s);
+    }
+
+    fn check_len<D: Direction>(queue: &impl GoodEnoughQueue<D>, side: &str, n: usize) {
+        if queue.len() != n {
+            panic!("Invalid {} queue length: {}, should be {}", side, queue.len(), n);
+        }
+    }
+
+    pub trait OrderBookExt {
+        fn check_bid(&self, index: usize, s: &str);
+
+        fn check_ask(&self, index: usize, s: &str);
+
+        fn check_bid_len(&self, n: usize);
+
+        fn check_ask_len(&self, n: usize);
+    }
+
+    impl OrderBookExt for OrderBook {
+        fn check_bid(&self, index: usize, s: &str) {
+            check_order(&self.bid, "bid", index, s);
+        }
+
+        fn check_ask(&self, index: usize, s: &str) {
+            check_order(&self.ask, "ask", index, s);
+        }
+
+        fn check_bid_len(&self, n: usize) {
+            check_len(&self.bid, "bid", n);
+        }
+
+        fn check_ask_len(&self, n: usize) {
+            check_len(&self.ask, "ask", n);
+        }
+    }
+
+    #[test]
+    fn matching_with_20_orders() {
+        let orders = create_orders();
+        let mut book = OrderBook::deserialize(orders);
+        let mut logger = DummyLogger;
+        book.check_bid_len(3500);
+        book.check_ask_len(3500);
+
+        let order = IncomingOrder {
+            price_limit: 10020,
+            size: 200,
+            user_id: 0,
+            kind: OrderKind::Limit,
+            side: OrderSide::Buy
+        };
+        book.execute_order(order, &mut logger);
+        book.check_bid_len(3500);
+        book.check_ask_len(3500-20);
+    }
 }

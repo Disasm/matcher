@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 use std::cmp::Ordering;
+use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum OrderSide {
@@ -44,6 +45,21 @@ pub struct IncomingOrder {
     pub user_id: u64,
     pub kind: OrderKind,
     pub side: OrderSide,
+}
+
+impl fmt::Display for IncomingOrder {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let side_letter = match self.side {
+            OrderSide::Buy => "B",
+            OrderSide::Sell => "S",
+        };
+        let kind_str = match self.kind {
+            OrderKind::Limit => "Lim",
+            OrderKind::FillOrKill => "FoK",
+            OrderKind::ImmediateOrCancel => "IoC",
+        };
+        write!(f, "{} {} ${} #{} u{}", kind_str, side_letter, self.price_limit, self.size, self.user_id)
+    }
 }
 
 impl From<IncomingOrder> for TaggedOrder {
