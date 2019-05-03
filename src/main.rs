@@ -29,7 +29,7 @@ fn main() {
         assert_eq!(book.bid().len(), 3500);
         assert_eq!(book.ask().len(), 3500 - 20);
 
-        for i in 0..20 {
+        for i in (0..20).rev() {
             let order = IncomingOrder {
                 price_limit: 10000 + i + 1,
                 amount: 10,
