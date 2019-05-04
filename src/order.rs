@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 use std::cmp::Ordering;
 use std::fmt;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum OrderSide {
@@ -38,7 +39,7 @@ impl TaggedOrder {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct IncomingOrder {
     pub price_limit: u64,
     pub size: u64,
@@ -59,6 +60,52 @@ impl fmt::Display for IncomingOrder {
             OrderKind::ImmediateOrCancel => "IoC",
         };
         write!(f, "{} {} ${} #{} u{}", kind_str, side_letter, self.price_limit, self.size, self.user_id)
+    }
+}
+
+#[derive(Debug)]
+pub struct IncomingOrderParseError;
+
+impl FromStr for IncomingOrder {
+    type Err = IncomingOrderParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<_> = s.split_whitespace().collect();
+        if parts.len() != 5 {
+            return Err(IncomingOrderParseError);
+        }
+
+        let kind = match parts[0] {
+            "Lim" => OrderKind::Limit,
+            "FoK" => OrderKind::FillOrKill,
+            "IoC" => OrderKind::ImmediateOrCancel,
+            _ => return Err(IncomingOrderParseError),
+        };
+        let side = match parts[1] {
+            "S" => OrderSide::Sell,
+            "B" => OrderSide::Buy,
+            _ => return Err(IncomingOrderParseError),
+        };
+
+        fn parse_u64_with_prefix(s: &str, prefix: &str) -> Result<u64, IncomingOrderParseError> {
+            if s.len() > 1 && s.starts_with(prefix) {
+                s[1..].parse().map_err(|_| IncomingOrderParseError)
+            } else {
+                Err(IncomingOrderParseError)
+            }
+        }
+
+        let price_limit = parse_u64_with_prefix(parts[2], "$")?;
+        let size = parse_u64_with_prefix(parts[3], "#")?;
+        let user_id = parse_u64_with_prefix(parts[4], "u")?;
+
+        Ok(IncomingOrder {
+            price_limit,
+            size,
+            user_id,
+            kind,
+            side,
+        })
     }
 }
 
@@ -149,4 +196,32 @@ impl<D: Direction> PartialOrd for Order<D> {
         };
         Some(order)
     }
+}
+
+#[test]
+fn test_from_str() {
+    let order = IncomingOrder::from_str("Lim B $1 #2 u3").unwrap();
+    let order2 = IncomingOrder {
+        price_limit: 1,
+        size: 2,
+        user_id: 3,
+        kind: OrderKind::Limit,
+        side: OrderSide::Buy
+    };
+    assert_eq!(order, order2);
+
+    IncomingOrder::from_str("Unk B $1 #2 u3").unwrap_err();
+    IncomingOrder::from_str("Lim T $1 #2 u3").unwrap_err();
+
+    IncomingOrder::from_str("Lim B 1 #2 u3").unwrap_err();
+    IncomingOrder::from_str("Lim B $$ #2 u3").unwrap_err();
+    IncomingOrder::from_str("Lim B $-1 #2 u3").unwrap_err();
+
+    IncomingOrder::from_str("Lim B $1 2 u3").unwrap_err();
+    IncomingOrder::from_str("Lim B $1 ## u3").unwrap_err();
+    IncomingOrder::from_str("Lim B $1 #-2 u3").unwrap_err();
+
+    IncomingOrder::from_str("Lim B $1 #2 3").unwrap_err();
+    IncomingOrder::from_str("Lim B $1 #2 uu").unwrap_err();
+    IncomingOrder::from_str("Lim B $1 #2 u-3").unwrap_err();
 }
