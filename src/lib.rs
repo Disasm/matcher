@@ -410,6 +410,100 @@ pub mod tests {
     }
 
     #[test]
+    fn test_matching1() {
+        // Source: _MessageBook1.txt
+        let orders = [
+            "Lim S $110 #6 u1",
+            "Lim S $120 #3 u2",
+            "Lim S $115 #4 u3",
+            "Lim S $105 #5 u4",
+            "Lim S $110 #2 u5",
+            "Lim S $105 #3 u6",
+            "Lim B $130 #23 u7",
+        ];
+
+        let expected_log = [
+            "Q #6",
+            "Q #3",
+            "Q #4",
+            "Q #5",
+            "Q #2",
+            "Q #3",
+            "F #5 $105 u4",
+            "F #3 $105 u6",
+            "F #6 $110 u1",
+            "F #2 $110 u5",
+            "F #4 $115 u3",
+            "F #3 $120 u2",
+        ];
+
+        let mut logger = VectorLogger::new();
+        let mut book = OrderBook::new();
+        for s in &orders {
+            book.execute_order(s.parse().unwrap(), &mut logger);
+        }
+        book.check_bid_len(0);
+        book.check_ask_len(0);
+
+        check_log(logger.as_slice(), &expected_log);
+    }
+
+    #[test]
+    fn test_matching2() {
+        // Source: _MessageBook2.txt
+        let orders = [
+            "Lim S $120 #1 u1",
+            "Lim S $115 #4 u2",
+            "Lim B $108 #3 u3",
+            "Lim S $105 #5 u4",
+            "Lim S $105 #6 u5",
+            "Lim B $110 #5 u6",
+            "Lim B $113 #2 u7",
+            "Lim B $118 #6 u8",
+        ];
+
+        let expected_log = [
+            "Q #1",
+            "Q #4",
+            "Q #3",
+
+            // Lim S $105 #5 u4
+            "F #3 $108 u3",
+            "Q #2",
+
+            // Lim S $105 #6 u5
+            "Q #6",
+
+            // Lim B $110 #5 u6
+            "F #2 $105 u4",
+            "F #3 $105 u5",
+
+            // Lim B $113 #2 u7
+            "F #2 $105 u5",
+
+            // Lim B $118 #6 u8
+            "F #1 $105 u5",
+            "F #4 $115 u2",
+            "Q #1",
+        ];
+
+        let mut logger = VectorLogger::new();
+        let mut book = OrderBook::new();
+        for s in &orders {
+            book.execute_order(s.parse().unwrap(), &mut logger);
+        }
+
+        book.check_bid_list(&[
+            "Lim B $118 #1 u8",
+        ]);
+        book.check_ask_list(&[
+            "Lim S $120 #1 u1",
+        ]);
+
+        check_log(logger.as_slice(), &expected_log);
+    }
+
+    #[test]
     fn matching_with_20_orders() {
         let orders = create_orders();
         let mut book = OrderBook::deserialize(orders);
