@@ -253,11 +253,17 @@ pub mod tests {
     pub trait OrderBookExt {
         fn check_bid(&self, index: usize, s: &str);
 
+        fn check_bid_list(&self, list: &[&str]);
+
         fn check_ask(&self, index: usize, s: &str);
+
+        fn check_ask_list(&self, list: &[&str]);
 
         fn check_bid_len(&self, n: usize);
 
         fn check_ask_len(&self, n: usize);
+
+        fn from_orders(list: &[&str]) -> Self;
     }
 
     impl OrderBookExt for OrderBook {
@@ -265,8 +271,22 @@ pub mod tests {
             check_order(&self.bid, "bid", index, s);
         }
 
+        fn check_bid_list(&self, list: &[&str]) {
+            check_len(&self.bid, "bid", list.len());
+            for (index, s) in list.iter().enumerate() {
+                check_order(&self.bid, "bid", index, s);
+            }
+        }
+
         fn check_ask(&self, index: usize, s: &str) {
             check_order(&self.ask, "ask", index, s);
+        }
+
+        fn check_ask_list(&self, list: &[&str]) {
+            check_len(&self.ask, "ask", list.len());
+            for (index, s) in list.iter().enumerate() {
+                check_order(&self.ask, "ask", index, s);
+            }
         }
 
         fn check_bid_len(&self, n: usize) {
@@ -276,6 +296,110 @@ pub mod tests {
         fn check_ask_len(&self, n: usize) {
             check_len(&self.ask, "ask", n);
         }
+
+        fn from_orders(list: &[&str]) -> Self {
+            let mut logger = DummyLogger;
+
+            let mut book = OrderBook::new();
+            for s in list {
+                book.execute_order(s.parse().unwrap(), &mut logger);
+            }
+            book
+        }
+    }
+
+    #[test]
+    fn new_book_is_empty() {
+        let book = OrderBook::new();
+        book.check_bid_len(0);
+        book.check_ask_len(0);
+    }
+
+    #[test]
+    fn book_insert_correct_queue() {
+        let mut logger = DummyLogger;
+
+        let mut book = OrderBook::new();
+        let order = "Lim B $100 #200 u42".parse().unwrap();
+        book.execute_order(order, &mut logger);
+        book.check_bid_len(1);
+        book.check_ask_len(0);
+
+        let mut book = OrderBook::new();
+        let order = "Lim S $100 #200 u42".parse().unwrap();
+        book.execute_order(order, &mut logger);
+        book.check_bid_len(0);
+        book.check_ask_len(1);
+    }
+
+    #[test]
+    fn book_insert_correct_ordering_by_price() {
+        let mut logger = DummyLogger;
+
+        let orders = [
+            "Lim B $110 #100 u42",
+            "Lim B $130 #100 u42",
+            "Lim B $120 #100 u42",
+            "Lim B $100 #100 u42",
+        ];
+        let book = OrderBook::from_orders(&orders);
+        book.check_bid_list(&[
+            orders[1],
+            orders[2],
+            orders[0],
+            orders[3],
+        ]);
+
+        let orders = [
+            "Lim S $110 #100 u42",
+            "Lim S $130 #100 u42",
+            "Lim S $120 #100 u42",
+            "Lim S $100 #100 u42",
+        ];
+        let book = OrderBook::from_orders(&orders);
+        book.check_ask_list(&[
+            orders[3],
+            orders[0],
+            orders[2],
+            orders[1],
+        ]);
+    }
+
+    #[test]
+    fn book_insert_correct_ordering_by_arrival() {
+        let mut logger = DummyLogger;
+
+        let orders = [
+            "Lim B $100 #100 u41",
+            "Lim B $101 #100 u42",
+            "Lim B $102 #100 u43",
+            "Lim B $101 #100 u44",
+            "Lim B $101 #100 u45",
+        ];
+        let book = OrderBook::from_orders(&orders);
+        book.check_bid_list(&[
+            orders[2],
+            orders[1],
+            orders[3],
+            orders[4],
+            orders[0],
+        ]);
+
+        let orders = [
+            "Lim S $100 #100 u41",
+            "Lim S $101 #100 u42",
+            "Lim S $102 #100 u43",
+            "Lim S $101 #100 u44",
+            "Lim S $101 #100 u45",
+        ];
+        let book = OrderBook::from_orders(&orders);
+        book.check_ask_list(&[
+            orders[0],
+            orders[1],
+            orders[3],
+            orders[4],
+            orders[2],
+        ]);
     }
 
     #[test]
