@@ -228,7 +228,7 @@ pub fn create_orders() -> Vec<IncomingOrder> {
 #[cfg(test)]
 pub mod tests {
     use crate::order::*;
-    use crate::log::DummyLogger;
+    use crate::log::{DummyLogger, VectorLogger, LogItem};
     use crate::{OrderBook, GoodEnoughQueue};
     use super::create_orders;
 
@@ -247,6 +247,17 @@ pub mod tests {
     fn check_len<D: Direction>(queue: &impl GoodEnoughQueue<D>, side: &str, n: usize) {
         if queue.len() != n {
             panic!("Invalid {} queue length: {}, should be {}", side, queue.len(), n);
+        }
+    }
+
+    fn check_log(log: &[LogItem], expected: &[&str]) {
+        if log.len() != expected.len() {
+            panic!("Incorrect log length: {}, expected {}", log.len(), expected.len());
+        }
+        for (i, log_item) in log.iter().enumerate() {
+            if log_item.to_string() != expected[i] {
+                panic!("Incorrect log item {}: '{}', expected '{}'", i, log_item.to_string(), expected[i]);
+            }
         }
     }
 
