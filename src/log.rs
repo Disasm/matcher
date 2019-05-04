@@ -1,5 +1,6 @@
 use smallvec::SmallVec;
 
+#[derive(PartialEq)]
 pub enum LogItem {
     Enqueued {
         size: u64,
@@ -12,6 +13,16 @@ pub enum LogItem {
     Cancelled {
         size: u64,
     },
+}
+
+impl ToString for LogItem {
+    fn to_string(&self) -> String {
+        match self {
+            LogItem::Enqueued { size } => format!("Q #{}", size),
+            LogItem::Fulfilled { size, price, user_id } => format!("F #{} ${} u{}", size, price, user_id),
+            LogItem::Cancelled { size } => format!("C #{}", size),
+        }
+    }
 }
 
 pub trait ExecutionLogger {
