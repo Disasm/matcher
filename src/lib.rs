@@ -334,8 +334,6 @@ pub mod tests {
 
     #[test]
     fn book_insert_correct_ordering_by_price() {
-        let mut logger = DummyLogger;
-
         let orders = [
             "Lim B $110 #100 u42",
             "Lim B $130 #100 u42",
@@ -367,8 +365,6 @@ pub mod tests {
 
     #[test]
     fn book_insert_correct_ordering_by_arrival() {
-        let mut logger = DummyLogger;
-
         let orders = [
             "Lim B $100 #100 u41",
             "Lim B $101 #100 u42",
