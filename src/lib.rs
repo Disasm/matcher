@@ -1,14 +1,12 @@
-#![allow(unused)]
-
 use crate::queues::{InsertableQueue, IterableQueue, TruncatableQueue};
-use crate::queues::{SimpleVecQueue, VecDequeQueue};
+use crate::queues::VecDequeQueue;
 use crate::order::{OrderSide, Order, OrderKind, IncomingOrder, Direction, Buy, Sell, TaggedOrder};
 use crate::log::{ExecutionLogger, LogItem, DummyLogger};
 use std::fmt;
 
 pub mod log;
 pub mod order;
-pub mod queues;
+mod queues;
 
 
 pub trait OrderQueueInsert<D: Direction> {
