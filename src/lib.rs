@@ -411,6 +411,43 @@ pub mod tests {
     }
 
     #[test]
+    fn match_ignores_orders_with_own_user_id() {
+        let orders = [
+            "Lim B $103 #1 u3",
+            "Lim B $102 #1 u0",
+            "Lim B $102 #1 u2",
+            "Lim B $101 #1 u1",
+            "Lim B $100 #1 u0",
+            "Lim S $90 #5 u0",
+        ];
+        let book = OrderBook::from_orders(&orders);
+        book.check_bid_list(&[
+            orders[1],
+            orders[4],
+        ]);
+        book.check_ask_list(&[
+            "Lim S $90 #2 u0"
+        ]);
+
+        let orders = [
+            "Lim S $103 #1 u3",
+            "Lim S $102 #1 u0",
+            "Lim S $102 #1 u2",
+            "Lim S $101 #1 u1",
+            "Lim S $100 #1 u0",
+            "Lim B $110 #5 u0",
+        ];
+        let book = OrderBook::from_orders(&orders);
+        book.check_ask_list(&[
+            orders[4],
+            orders[1],
+        ]);
+        book.check_bid_list(&[
+            "Lim B $110 #2 u0"
+        ]);
+    }
+
+    #[test]
     fn test_matching1() {
         // Source: _MessageBook1.txt
         let orders = [
