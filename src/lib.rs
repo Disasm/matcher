@@ -4,6 +4,7 @@ use crate::queues::{InsertableQueue, IterableQueue, TruncatableQueue};
 use crate::queues::{SimpleVecQueue, VecDequeQueue};
 use crate::order::{OrderSide, Order, OrderKind, IncomingOrder, Direction, Buy, Sell, TaggedOrder};
 use crate::log::{ExecutionLogger, LogItem, DummyLogger};
+use std::fmt;
 
 pub mod log;
 pub mod order;
@@ -180,21 +181,19 @@ impl OrderBook {
     }
 }
 
-#[allow(unused)]
-pub fn dump20(book: &OrderBook) {
-    println!("== ORDER BOOK START");
-    for (index, order) in (&book.ask).into_iter().enumerate().rev() {
-        if index < 25 {
-            println!("{:?}", order);
+impl fmt::Debug for OrderBook {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "== ORDER BOOK START")?;
+        for order in (&self.ask).into_iter().rev() {
+            writeln!(f, "{}", order.to_incoming())?;
         }
-    }
-    println!("--");
-    for (index, order) in (&book.bid).into_iter().enumerate() {
-        if index < 25 {
-            println!("{:?}", order);
+        writeln!(f, "-----")?;
+        for order in (&self.bid).into_iter() {
+            writeln!(f, "{}", order.to_incoming())?;
         }
+        writeln!(f, "== ORDER BOOK END")?;
+        Ok(())
     }
-    println!("== ORDER BOOK END");
 }
 
 #[allow(unused)]
