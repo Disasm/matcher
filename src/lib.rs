@@ -59,6 +59,7 @@ where Q: IterableQueue<Order<D>> + InsertableQueue<Order<D>> + TruncatableQueue 
 
             if passive_order.user_id == order.user_id {
                 retained.push(passive_order.clone());
+                drop_first = index + 1;
                 return true;
             }
 
