@@ -1,0 +1,8 @@
+Lim S $120 #1 u1
+Lim S $115 #4 u2
+Lim B $108 #3 u3
+Lim S $105 #5 u4
+Lim S $105 #6 u5
+Lim B $110 #5 u6
+Lim B $113 #2 u7
+Lim B $118 #6 u8
