@@ -1,6 +1,6 @@
 //! This crate implements order matching for [IncomingOrders](order::IncomingOrder) against an [OrderBook](OrderBook).
 
-use crate::queues::{VecDequeQueue, Queue};
+use crate::queues::{ReversedVec, Queue};
 use crate::order::{OrderSide, Order, OrderKind, IncomingOrder, Direction, Buy, Sell, TaggedOrder};
 use crate::log::{ExecutionLogger, LogItem, DummyLogger};
 use std::fmt;
@@ -12,11 +12,11 @@ mod queues;
 
 /// Represents underlying order queue
 #[derive(Clone)]
-pub struct OrderQueue<D>(VecDequeQueue<D>);
+pub struct OrderQueue<D>(ReversedVec<D>);
 
 impl<D: Direction> OrderQueue<D> {
     fn new() -> Self {
-        Self(VecDequeQueue::new())
+        Self(ReversedVec::new())
     }
 
     fn match_order(&mut self, order: &mut Order<D::Other>, kind: OrderKind, logger: &mut impl ExecutionLogger) {
@@ -100,8 +100,8 @@ impl<D: Direction> OrderQueue<D> {
 }
 
 impl<'a, D: 'a+Direction> IntoIterator for &'a OrderQueue<D> {
-    type Item = <&'a VecDequeQueue<D> as IntoIterator>::Item;
-    type IntoIter = <&'a VecDequeQueue<D> as IntoIterator>::IntoIter;
+    type Item = <&'a ReversedVec<D> as IntoIterator>::Item;
+    type IntoIter = <&'a ReversedVec<D> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
