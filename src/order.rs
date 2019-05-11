@@ -19,13 +19,13 @@ pub enum OrderKind {
 //#[repr(align(128))]
 #[derive(Debug, Clone)]
 pub struct Order<D> {
-    pub price_limit: u64,
-    pub size: u64,
-    pub user_id: u64,
+    pub(crate) price_limit: u64,
+    pub(crate) size: u64,
+    pub(crate) user_id: u64,
     _marker: PhantomData<D>,
 }
 
-pub enum TaggedOrder {
+pub(crate) enum TaggedOrder {
     Buy(Order<Buy>),
     Sell(Order<Sell>),
 }
