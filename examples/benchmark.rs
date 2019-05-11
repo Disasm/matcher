@@ -5,7 +5,7 @@ use matcher::log::DummyLogger;
 
 fn main() {
     let orders = create_orders();
-    let mut book = OrderBook::deserialize(orders);
+    let mut book = OrderBook::from_vec(orders);
     let mut logger = DummyLogger;
     assert_eq!(book.bid().len(), 3500);
     assert_eq!(book.ask().len(), 3500);

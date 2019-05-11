@@ -158,7 +158,7 @@ impl OrderBook {
         }
     }
 
-    pub fn serialize(&self) -> Vec<IncomingOrder> {
+    pub fn to_vec(&self) -> Vec<IncomingOrder> {
         let mut orders = Vec::new();
         for order in (&self.bid).into_iter().rev() {
             orders.push(order.to_incoming());
@@ -169,7 +169,7 @@ impl OrderBook {
         orders
     }
 
-    pub fn deserialize(orders: Vec<IncomingOrder>) -> Self {
+    pub fn from_vec(orders: Vec<IncomingOrder>) -> Self {
         let mut book = Self::new();
         let mut logger = DummyLogger;
         for order in orders {
@@ -711,7 +711,7 @@ pub mod tests {
     #[test]
     fn matching_with_20_orders() {
         let orders = create_orders();
-        let mut book = OrderBook::deserialize(orders);
+        let mut book = OrderBook::from_vec(orders);
         let mut logger = DummyLogger;
         book.check_bid_len(3500);
         book.check_ask_len(3500);

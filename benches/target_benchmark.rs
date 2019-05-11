@@ -44,7 +44,7 @@ fn execute_order(data: BenchInputData) {
 
 fn criterion_benchmark(c: &mut Criterion) {
     let orders = create_orders();
-    let book = OrderBook::deserialize(orders);
+    let book = OrderBook::from_vec(orders);
 
     let order = IncomingOrder {
         price_limit: 10020,
