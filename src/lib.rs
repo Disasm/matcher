@@ -445,6 +445,176 @@ pub mod tests {
     }
 
     #[test]
+    fn test_fill_or_kill() {
+        /* Selling */
+        let orders = [
+            "Lim B $103 #1 u1",
+            "Lim B $102 #1 u2",
+            "Lim B $102 #1 u3",
+            "Lim B $101 #1 u4",
+            "Lim B $100 #1 u5",
+        ];
+
+        // No orders matched incoming order
+        let mut book = OrderBook::from_orders(&orders);
+        let mut logger = VectorLogger::new();
+        book.execute_order("FoK S $110 #5 u0".parse().unwrap(), &mut logger);
+        check_log(logger.as_slice(), &["C #5"]);
+        book.check_bid_list(&orders);
+        book.check_ask_len(0);
+
+        // Some orders matched incoming order, order was not fulfilled
+        let mut book = OrderBook::from_orders(&orders);
+        let mut logger = VectorLogger::new();
+        book.execute_order("FoK S $101 #5 u0".parse().unwrap(), &mut logger);
+        check_log(logger.as_slice(), &["C #5"]);
+        book.check_bid_list(&orders);
+        book.check_ask_len(0);
+
+        // Incoming order was fulfilled
+        let mut book = OrderBook::from_orders(&orders);
+        let mut logger = VectorLogger::new();
+        book.execute_order("FoK S $100 #4 u0".parse().unwrap(), &mut logger);
+        check_log(logger.as_slice(), &[
+            "F #1 $103 u1",
+            "F #1 $102 u2",
+            "F #1 $102 u3",
+            "F #1 $101 u4",
+        ]);
+        book.check_bid_list(&[orders[4]]);
+        book.check_ask_len(0);
+
+        /* Buying */
+        let orders = [
+            "Lim S $100 #1 u1",
+            "Lim S $101 #1 u2",
+            "Lim S $102 #1 u3",
+            "Lim S $102 #1 u4",
+            "Lim S $103 #1 u5",
+        ];
+
+        // No orders matched incoming order
+        let mut book = OrderBook::from_orders(&orders);
+        let mut logger = VectorLogger::new();
+        book.execute_order("FoK B $90 #5 u0".parse().unwrap(), &mut logger);
+        check_log(logger.as_slice(), &["C #5"]);
+        book.check_ask_list(&orders);
+        book.check_bid_len(0);
+
+        // Some orders matched incoming order, order was not fulfilled
+        let mut book = OrderBook::from_orders(&orders);
+        let mut logger = VectorLogger::new();
+        book.execute_order("FoK B $102 #5 u0".parse().unwrap(), &mut logger);
+        check_log(logger.as_slice(), &["C #5"]);
+        book.check_ask_list(&orders);
+        book.check_bid_len(0);
+
+        // Incoming order was fulfilled
+        let mut book = OrderBook::from_orders(&orders);
+        let mut logger = VectorLogger::new();
+        book.execute_order("FoK B $110 #4 u0".parse().unwrap(), &mut logger);
+        check_log(logger.as_slice(), &[
+            "F #1 $100 u1",
+            "F #1 $101 u2",
+            "F #1 $102 u3",
+            "F #1 $102 u4",
+        ]);
+        book.check_ask_list(&[orders[4]]);
+        book.check_bid_len(0);
+    }
+
+    #[test]
+    fn test_immediate_or_cancel() {
+        /* Selling */
+        let orders = [
+            "Lim B $103 #1 u1",
+            "Lim B $102 #1 u2",
+            "Lim B $102 #1 u3",
+            "Lim B $101 #1 u4",
+            "Lim B $100 #1 u5",
+        ];
+
+        // No orders matched incoming order
+        let mut book = OrderBook::from_orders(&orders);
+        let mut logger = VectorLogger::new();
+        book.execute_order("IoC S $110 #5 u0".parse().unwrap(), &mut logger);
+        check_log(logger.as_slice(), &["C #5"]);
+        book.check_bid_list(&orders);
+        book.check_ask_len(0);
+
+        // Some orders matched incoming order, order was partially fulfilled
+        let mut book = OrderBook::from_orders(&orders);
+        let mut logger = VectorLogger::new();
+        book.execute_order("IoC S $101 #5 u0".parse().unwrap(), &mut logger);
+        check_log(logger.as_slice(), &[
+            "F #1 $103 u1",
+            "F #1 $102 u2",
+            "F #1 $102 u3",
+            "F #1 $101 u4",
+            "C #1",
+        ]);
+        book.check_bid_list(&[orders[4]]);
+        book.check_ask_len(0);
+
+        // Incoming order was fully fulfilled
+        let mut book = OrderBook::from_orders(&orders);
+        let mut logger = VectorLogger::new();
+        book.execute_order("IoC S $100 #4 u0".parse().unwrap(), &mut logger);
+        check_log(logger.as_slice(), &[
+            "F #1 $103 u1",
+            "F #1 $102 u2",
+            "F #1 $102 u3",
+            "F #1 $101 u4",
+        ]);
+        book.check_bid_list(&[orders[4]]);
+        book.check_ask_len(0);
+
+        /* Buying */
+        let orders = [
+            "Lim S $100 #1 u1",
+            "Lim S $101 #1 u2",
+            "Lim S $102 #1 u3",
+            "Lim S $102 #1 u4",
+            "Lim S $103 #1 u5",
+        ];
+
+        // No orders matched incoming order
+        let mut book = OrderBook::from_orders(&orders);
+        let mut logger = VectorLogger::new();
+        book.execute_order("IoC B $90 #5 u0".parse().unwrap(), &mut logger);
+        check_log(logger.as_slice(), &["C #5"]);
+        book.check_ask_list(&orders);
+        book.check_bid_len(0);
+
+        // Some orders matched incoming order, order was partially fulfilled
+        let mut book = OrderBook::from_orders(&orders);
+        let mut logger = VectorLogger::new();
+        book.execute_order("IoC B $102 #5 u0".parse().unwrap(), &mut logger);
+        check_log(logger.as_slice(), &[
+            "F #1 $100 u1",
+            "F #1 $101 u2",
+            "F #1 $102 u3",
+            "F #1 $102 u4",
+            "C #1",
+        ]);
+        book.check_ask_list(&[orders[4]]);
+        book.check_bid_len(0);
+
+        // Incoming order was fully fulfilled
+        let mut book = OrderBook::from_orders(&orders);
+        let mut logger = VectorLogger::new();
+        book.execute_order("IoC B $110 #4 u0".parse().unwrap(), &mut logger);
+        check_log(logger.as_slice(), &[
+            "F #1 $100 u1",
+            "F #1 $101 u2",
+            "F #1 $102 u3",
+            "F #1 $102 u4",
+        ]);
+        book.check_ask_list(&[orders[4]]);
+        book.check_bid_len(0);
+    }
+
+    #[test]
     fn test_matching1() {
         // Source: _MessageBook1.txt
         let orders = [
