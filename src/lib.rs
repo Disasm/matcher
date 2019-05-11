@@ -1,7 +1,6 @@
 //! This crate implements order matching for [IncomingOrders](order::IncomingOrder) against an [OrderBook](OrderBook).
 
-use crate::queues::{InsertableQueue, IterableQueue, TruncatableQueue};
-use crate::queues::VecDequeQueue;
+use crate::queues::{VecDequeQueue, Queue};
 use crate::order::{OrderSide, Order, OrderKind, IncomingOrder, Direction, Buy, Sell, TaggedOrder};
 use crate::log::{ExecutionLogger, LogItem, DummyLogger};
 use std::fmt;
@@ -11,55 +10,21 @@ pub mod order;
 mod queues;
 
 
-/// Trait for the underlying order queue that can insert new `order`
-pub trait OrderQueueInsert<D: Direction> {
-    /// Enqueues `order`
-    fn insert(&mut self, order: Order<D>);
-}
+/// Represents underlying order queue
+#[derive(Clone)]
+pub struct OrderQueue<D>(VecDequeQueue<D>);
 
-/// Trait for the underlying order queue that can match against new `order`
-pub trait OrderQueueMatch<D: Direction> {
-    /// Matches `order` against passive orders in given queue removing fulfilled orders
-    fn match_order(&mut self, order: &mut Order<D::Other>, kind: OrderKind, logger: &mut impl ExecutionLogger);
-}
-
-/// Trait for the underlying order queue suitable for incoming order execution
-pub trait GoodEnoughQueue<D: Direction>: Default + OrderQueueInsert<D> + OrderQueueMatch<D> {
-    /// Returns queue length
-    fn len(&self) -> usize;
-}
-
-impl<D: Direction, Q: InsertableQueue<Order<D>>> OrderQueueInsert<D> for Q {
-    fn insert(&mut self, order: Order<D>) {
-        match D::SIDE {
-            OrderSide::Buy => {
-                let index = self.insert_position(|o| o.price_limit < order.price_limit);
-                if let Some(index) = index {
-                    self.insert_at(index, order);
-                } else {
-                    self.push_back(order);
-                }
-            }
-            OrderSide::Sell => {
-                let index = self.insert_position(|o| o.price_limit > order.price_limit);
-                if let Some(index) = index {
-                    self.insert_at(index, order);
-                } else {
-                    self.push_back(order);
-                }
-            }
-        }
+impl<D: Direction> OrderQueue<D> {
+    fn new() -> Self {
+        Self(VecDequeQueue::new())
     }
-}
 
-impl<D: Direction, Q> OrderQueueMatch<D> for Q
-where Q: IterableQueue<Order<D>> + InsertableQueue<Order<D>> + TruncatableQueue {
     fn match_order(&mut self, order: &mut Order<D::Other>, kind: OrderKind, logger: &mut impl ExecutionLogger) {
         let initial_size = order.size;
         let mut retained = Vec::new();
         let mut drop_first = 0;
 
-        self.iterate(|passive_order, index| {
+        self.0.iterate(|passive_order, index| {
             if !passive_order.price_matches(order) {
                 return false;
             }
@@ -100,11 +65,46 @@ where Q: IterableQueue<Order<D>> + InsertableQueue<Order<D>> + TruncatableQueue 
         }
 
         if drop_first > 0 {
-            self.drop_first_n(drop_first);
+            self.0.drop_first_n(drop_first);
         }
         for order in retained.into_iter().rev() {
-            self.push_front(order);
+            self.0.push_front(order);
         }
+    }
+
+    fn insert(&mut self, order: Order<D>) {
+        match D::SIDE {
+            OrderSide::Buy => {
+                let index = self.0.insert_position(|o| o.price_limit < order.price_limit);
+                if let Some(index) = index {
+                    self.0.insert_at(index, order);
+                } else {
+                    self.0.push_back(order);
+                }
+            }
+            OrderSide::Sell => {
+                let index = self.0.insert_position(|o| o.price_limit > order.price_limit);
+                if let Some(index) = index {
+                    self.0.insert_at(index, order);
+                } else {
+                    self.0.push_back(order);
+                }
+            }
+        }
+    }
+
+    /// Returns queue length
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl<'a, D: 'a+Direction> IntoIterator for &'a OrderQueue<D> {
+    type Item = <&'a VecDequeQueue<D> as IntoIterator>::Item;
+    type IntoIter = <&'a VecDequeQueue<D> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
@@ -112,26 +112,26 @@ where Q: IterableQueue<Order<D>> + InsertableQueue<Order<D>> + TruncatableQueue 
 /// Represents order book
 #[derive(Clone)]
 pub struct OrderBook {
-    bid: VecDequeQueue<Buy>,
-    ask: VecDequeQueue<Sell>,
+    bid: OrderQueue<Buy>,
+    ask: OrderQueue<Sell>,
 }
 
 impl OrderBook {
     /// Constructs an empty `OrderBook`
     pub fn new() -> Self {
         OrderBook {
-            bid: VecDequeQueue::default(),
-            ask: VecDequeQueue::default(),
+            bid: OrderQueue::new(),
+            ask: OrderQueue::new(),
         }
     }
 
     /// Returns a reference to the `bid` queue
-    pub fn bid(&self) -> &VecDequeQueue<Buy> {
+    pub fn bid(&self) -> &OrderQueue<Buy> {
         &self.bid
     }
 
     /// Returns a reference to the `ask` queue
-    pub fn ask(&self) -> &VecDequeQueue<Sell> {
+    pub fn ask(&self) -> &OrderQueue<Sell> {
         &self.ask
     }
 
@@ -179,7 +179,7 @@ impl OrderBook {
         for order in (&self.bid).into_iter().rev() {
             orders.push(order.to_incoming());
         }
-        for order in (&self.ask).into_iter() {
+        for order in &self.ask {
             orders.push(order.to_incoming());
         }
         orders
@@ -203,7 +203,7 @@ impl fmt::Debug for OrderBook {
             writeln!(f, "{}", order.to_incoming())?;
         }
         writeln!(f, "-----")?;
-        for order in (&self.bid).into_iter() {
+        for order in &self.bid {
             writeln!(f, "{}", order.to_incoming())?;
         }
         writeln!(f, "== ORDER BOOK END")?;
@@ -246,7 +246,7 @@ pub fn create_orders() -> Vec<IncomingOrder> {
 pub mod tests {
     use crate::order::*;
     use crate::log::{DummyLogger, VectorLogger, LogItem};
-    use crate::{OrderBook, GoodEnoughQueue};
+    use crate::{OrderBook, OrderQueue};
     use super::create_orders;
 
     fn get_order<'a, D: 'a+Direction>(queue: impl IntoIterator<Item=&'a Order<D>>, index: usize) -> IncomingOrder {
@@ -261,7 +261,7 @@ pub mod tests {
         assert_eq!(order.to_string(), s);
     }
 
-    fn check_len<D: Direction>(queue: &impl GoodEnoughQueue<D>, side: &str, n: usize) {
+    fn check_len<D: Direction>(queue: &OrderQueue<D>, side: &str, n: usize) {
         if queue.len() != n {
             panic!("Invalid {} queue length: {}, should be {}", side, queue.len(), n);
         }

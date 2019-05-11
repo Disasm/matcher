@@ -1,6 +1,5 @@
 use matcher::{create_orders, OrderBook};
 use matcher::order::{IncomingOrder, OrderKind, OrderSide};
-use matcher::GoodEnoughQueue;
 use matcher::log::DummyLogger;
 
 fn main() {

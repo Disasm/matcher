@@ -1,18 +1,15 @@
 use crate::order::{Order, Direction};
-use crate::queues::{InsertableQueue, TruncatableQueue, IterableQueue};
-use crate::GoodEnoughQueue;
 use std::{slice, iter};
+use crate::queues::Queue;
 
 #[derive(Clone)]
 pub struct ReversedVec<D>(Vec<Order<D>>);
 
-impl<D> Default for ReversedVec<D> {
-    fn default() -> Self {
+impl<D: Direction> Queue<Order<D>> for ReversedVec<D> {
+    fn new() -> Self {
         Self(Vec::new())
     }
-}
 
-impl<D: Direction> InsertableQueue<Order<D>> for ReversedVec<D> {
     fn insert_position<P>(&self, predicate: P) -> Option<usize>
         where P: FnMut(&Order<D>) -> bool
     {
@@ -30,15 +27,11 @@ impl<D: Direction> InsertableQueue<Order<D>> for ReversedVec<D> {
             self.0.insert(self.0.len() - index, item);
         }
     }
-}
 
-impl<D> TruncatableQueue for ReversedVec<D> {
     fn drop_first_n(&mut self, count: usize) {
         self.0.truncate(self.0.len() - count)
     }
-}
 
-impl<D> IterableQueue<Order<D>> for ReversedVec<D> {
     fn iterate<P>(&mut self, mut predicate: P) where P: FnMut(&mut Order<D>, usize) -> bool {
         for (index, order) in self.0.iter_mut().rev().enumerate() {
             if !predicate(order, index) {
@@ -46,7 +39,12 @@ impl<D> IterableQueue<Order<D>> for ReversedVec<D> {
             }
         }
     }
+
+    fn len(&self) -> usize {
+        self.0.len()
+    }
 }
+
 
 impl<'a, D> IntoIterator for &'a ReversedVec<D> {
     type Item = &'a Order<D>;
@@ -54,11 +52,5 @@ impl<'a, D> IntoIterator for &'a ReversedVec<D> {
 
     fn into_iter(self) -> Self::IntoIter {
         (&self.0).into_iter().rev()
-    }
-}
-
-impl<D: Direction> GoodEnoughQueue<D> for ReversedVec<D> {
-    fn len(&self) -> usize {
-        self.0.len()
     }
 }

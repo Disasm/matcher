@@ -1,19 +1,16 @@
 use crate::order::{Order, Direction};
 use std::collections::vec_deque::VecDeque;
-use crate::{InsertableQueue, GoodEnoughQueue};
-use crate::queues::{IterableQueue, TruncatableQueue};
 use std::collections::vec_deque;
+use crate::queues::Queue;
 
 #[derive(Clone)]
 pub struct VecDequeQueue<D>(VecDeque<Order<D>>);
 
-impl<D> Default for VecDequeQueue<D> {
-    fn default() -> Self {
+impl<D: Direction> Queue<Order<D>> for VecDequeQueue<D> {
+    fn new() -> Self {
         Self(VecDeque::new())
     }
-}
 
-impl<D: Direction> InsertableQueue<Order<D>> for VecDequeQueue<D> {
     fn insert_position<P>(&self, predicate: P) -> Option<usize>
         where P: FnMut(&Order<D>) -> bool
     {
@@ -31,15 +28,11 @@ impl<D: Direction> InsertableQueue<Order<D>> for VecDequeQueue<D> {
             self.0.insert(index, item)
         }
     }
-}
 
-impl<D> TruncatableQueue for VecDequeQueue<D> {
     fn drop_first_n(&mut self, count: usize) {
         self.0.drain(0..count);
     }
-}
 
-impl<D> IterableQueue<Order<D>> for VecDequeQueue<D> {
     fn iterate<P>(&mut self, mut predicate: P) where P: FnMut(&mut Order<D>, usize) -> bool {
         for (index, order) in self.0.iter_mut().enumerate() {
             if !predicate(order, index) {
@@ -47,7 +40,12 @@ impl<D> IterableQueue<Order<D>> for VecDequeQueue<D> {
             }
         }
     }
+
+    fn len(&self) -> usize {
+        self.0.len()
+    }
 }
+
 
 impl<'a, D> IntoIterator for &'a VecDequeQueue<D> {
     type Item = &'a Order<D>;
@@ -55,11 +53,5 @@ impl<'a, D> IntoIterator for &'a VecDequeQueue<D> {
 
     fn into_iter(self) -> Self::IntoIter {
         (&self.0).into_iter()
-    }
-}
-
-impl<D: Direction> GoodEnoughQueue<D> for VecDequeQueue<D> {
-    fn len(&self) -> usize {
-        self.0.len()
     }
 }

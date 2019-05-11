@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, BatchSize};
 use criterion::Criterion;
-use matcher::{create_orders, OrderBook, GoodEnoughQueue};
+use matcher::{create_orders, OrderBook};
 use matcher::order::{IncomingOrder, OrderKind, OrderSide};
 use matcher::log::DummyLogger;
 use std::rc::Rc;
