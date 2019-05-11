@@ -1,15 +1,21 @@
+//! Logger implementations
 use smallvec::SmallVec;
 
+/// Order execution result presented to logger
+#[allow(missing_docs)]
 #[derive(PartialEq)]
 pub enum LogItem {
+    /// Order was added to the corresponding order queue
     Enqueued {
         size: u64,
     },
+    /// Order was fulfilled with another passive order
     Fulfilled {
         size: u64,
         price: u64,
         user_id: u64,
     },
+    /// Order was cancelled
     Cancelled {
         size: u64,
     },
@@ -25,12 +31,18 @@ impl ToString for LogItem {
     }
 }
 
+/// Represents abstract logger for order execution results
 pub trait ExecutionLogger {
+    /// Logs execution result
     fn log(&mut self, item: LogItem);
 
+    /// Removes previously logged items
+    ///
+    /// Used for matching transactions that can be cancelled.
     fn cancel(&mut self);
 }
 
+/// Dummy logger which logs everything into the void
 pub struct DummyLogger;
 
 impl ExecutionLogger for DummyLogger {
@@ -39,13 +51,16 @@ impl ExecutionLogger for DummyLogger {
     fn cancel(&mut self) { }
 }
 
+/// Logger which uses vector as storage
 pub struct VectorLogger(SmallVec<[LogItem; 32]>);
 
 impl VectorLogger {
+    /// Constructs `VectorLogger`
     pub fn new() -> Self {
         Self(SmallVec::new())
     }
 
+    /// Returns slice representation of logged items
     pub fn as_slice(&self) -> &[LogItem] {
         self.0.as_slice()
     }
