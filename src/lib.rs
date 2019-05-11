@@ -1,3 +1,5 @@
+//! This crate implements order matching for [IncomingOrders](order::IncomingOrder) against an [OrderBook](OrderBook).
+
 use crate::queues::{InsertableQueue, IterableQueue, TruncatableQueue};
 use crate::queues::VecDequeQueue;
 use crate::order::{OrderSide, Order, OrderKind, IncomingOrder, Direction, Buy, Sell, TaggedOrder};
@@ -9,15 +11,21 @@ pub mod order;
 mod queues;
 
 
+/// Trait for the underlying order queue that can insert new `order`
 pub trait OrderQueueInsert<D: Direction> {
+    /// Enqueues `order`
     fn insert(&mut self, order: Order<D>);
 }
 
+/// Trait for the underlying order queue that can match against new `order`
 pub trait OrderQueueMatch<D: Direction> {
+    /// Matches `order` against passive orders in given queue removing fulfilled orders
     fn match_order(&mut self, order: &mut Order<D::Other>, kind: OrderKind, logger: &mut impl ExecutionLogger);
 }
 
+/// Trait for the underlying order queue suitable for incoming order execution
 pub trait GoodEnoughQueue<D: Direction>: Default + OrderQueueInsert<D> + OrderQueueMatch<D> {
+    /// Returns queue length
     fn len(&self) -> usize;
 }
 
@@ -101,6 +109,7 @@ where Q: IterableQueue<Order<D>> + InsertableQueue<Order<D>> + TruncatableQueue 
 }
 
 
+/// Represents order book
 #[derive(Clone)]
 pub struct OrderBook {
     bid: VecDequeQueue<Buy>,
@@ -108,6 +117,7 @@ pub struct OrderBook {
 }
 
 impl OrderBook {
+    /// Constructs an empty `OrderBook`
     pub fn new() -> Self {
         OrderBook {
             bid: VecDequeQueue::default(),
@@ -115,14 +125,19 @@ impl OrderBook {
         }
     }
 
+    /// Returns a reference to the `bid` queue
     pub fn bid(&self) -> &VecDequeQueue<Buy> {
         &self.bid
     }
 
+    /// Returns a reference to the `ask` queue
     pub fn ask(&self) -> &VecDequeQueue<Sell> {
         &self.ask
     }
 
+    /// Executes `order`
+    ///
+    /// Execution results will be logged with `logger`. Previous state of the logger may be lost.
     pub fn execute_order(&mut self, order: IncomingOrder, logger: &mut impl ExecutionLogger) {
         let kind = order.kind;
         let mut order = TaggedOrder::from(order);
@@ -158,6 +173,7 @@ impl OrderBook {
         }
     }
 
+    /// Returns a vector of [IncomingOrders](IncomingOrder) reflecting the current state of `OrderBook`
     pub fn to_vec(&self) -> Vec<IncomingOrder> {
         let mut orders = Vec::new();
         for order in (&self.bid).into_iter().rev() {
@@ -169,6 +185,7 @@ impl OrderBook {
         orders
     }
 
+    /// Creates an `OrderBook` from vector of [IncomingOrders](IncomingOrder)
     pub fn from_vec(orders: Vec<IncomingOrder>) -> Self {
         let mut book = Self::new();
         let mut logger = DummyLogger;
@@ -194,6 +211,8 @@ impl fmt::Debug for OrderBook {
     }
 }
 
+/// Returns a vector representing order book contents for benchmark
+#[doc(hidden)]
 #[allow(unused)]
 pub fn create_orders() -> Vec<IncomingOrder> {
     let price = 10000;
