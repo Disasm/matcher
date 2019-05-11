@@ -1,21 +1,32 @@
+//! Definitions of different order structures
+
 use std::marker::PhantomData;
 use std::cmp::Ordering;
 use std::fmt;
 use std::str::FromStr;
 
+/// Order side (buy or sell)
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum OrderSide {
     Buy,
     Sell,
 }
 
+/// Order kind (limit, fill-or-kill, immediate-or-cancel)
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum OrderKind {
+    /// Specifies a price limit at which the order must be executed.
+    /// If the order cannot be executed immediately, the rest of the order is added to the order queue.
     Limit,
+    /// Executes immediately if possible.
+    /// If there are not enough incoming orders matching the given order, order is cancelled.
     FillOrKill,
+    /// Executes any part of the order immediately, the rest of the order is cancelled.
     ImmediateOrCancel,
 }
 
+/// Representation of the order stored in the order queue
 //#[repr(align(128))]
 #[derive(Debug, Clone)]
 pub struct Order<D> {
@@ -39,12 +50,18 @@ impl TaggedOrder {
     }
 }
 
+/// Representation of incoming order
 #[derive(Debug, Clone, PartialEq)]
 pub struct IncomingOrder {
+    /// Price limit at which the order must be executed
     pub price_limit: u64,
+    /// Order size: amount of traded goods
     pub size: u64,
+    /// ID of the user who created the order
     pub user_id: u64,
+    /// Order kind
     pub kind: OrderKind,
+    /// Order side (e.g. buy or sell)
     pub side: OrderSide,
 }
 
@@ -63,6 +80,7 @@ impl fmt::Display for IncomingOrder {
     }
 }
 
+#[allow(missing_docs)]
 #[derive(Debug)]
 pub struct IncomingOrderParseError;
 
@@ -128,14 +146,17 @@ impl From<IncomingOrder> for TaggedOrder {
     }
 }
 
+#[doc(hidden)]
 pub trait Direction: Clone {
     type Other: Direction;
     const SIDE: OrderSide;
 }
 
+#[doc(hidden)]
 #[derive(Clone, Debug)]
 pub enum Buy {}
 
+#[doc(hidden)]
 #[derive(Clone, Debug)]
 pub enum Sell {}
 
@@ -155,6 +176,7 @@ impl<D: Direction> Direction for Order<D> {
 }
 
 impl<D: Direction> Order<D> {
+    /// Checks whether given order matches `other` order by price
     pub fn price_matches(&self, other: &Order<D::Other>) -> bool {
         match D::SIDE {
             OrderSide::Buy => other.price_limit <= self.price_limit,
@@ -162,6 +184,7 @@ impl<D: Direction> Order<D> {
         }
     }
 
+    /// Constructs equivalent [IncomingOrder](IncomingOrder)
     pub fn to_incoming(&self) -> IncomingOrder {
         IncomingOrder {
             price_limit: self.price_limit,
